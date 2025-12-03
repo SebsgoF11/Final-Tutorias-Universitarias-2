@@ -1,8 +1,6 @@
 # kubernetes-manifests/ms-tutorias.yaml
 
 # 1. Service (ClusterIP)
-# Define el nombre del servicio interno para que otros microservicios puedan comunicarse con este.
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -15,37 +13,38 @@ spec:
   ports:
     - protocol: TCP
       port: 3000
-      targetPort: 3000 # El puerto interno en el que corre la aplicación.
+      targetPort: 3000
   type: ClusterIP
 ---
 
 # 2. Deployment
-# Define el conjunto de réplicas y la configuración del contenedor.
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ms-tutorias-deployment
 spec:
-  replicas: 1 # Queremos una sola instancia de este servicio, para el momento de la resilencia, al borrar queda en 0, automaticamente buscara recrearlo
+  replicas: 1 # 
   selector:
     matchLabels:
       app: ms-tutorias
   template:
     metadata:
       annotations:
-        # Esto es para inyección de Linkerd (si lo estás usando)
         linkerd.io/inject: enabled 
       labels:
         app: ms-tutorias
     spec:
-      # --- INICIO DE LA CORRECCIÓN DE SINTAXIS ---
-      # La clave 'containers' debe ir anidada bajo 'spec'.
       containers: 
-      # --- FIN DE LA CORRECCIÓN DE SINTAXIS ---
         - name: ms-tutorias
-          image: sebsgo/ms-tutorias:1.2 # Asegúrate que esta imagen exista y sea accesible.
-          imagePullPolicy: IfNotPresent # Recomendado para usar la imagen local de minikube/Docker.
+          image: sebsgo/ms-tutorias:1.2
+          imagePullPolicy: IfNotPresent
+          resources: # <-- OPTIMIZACIÓN DE RECURSOS (RETO 01)
+            requests:
+              cpu: "250m"  # 0.25 vCPU (25% de un núcleo)
+              memory: "128Mi"
+            limits:
+              cpu: "500m"  # Máximo 0.5 vCPU
+              memory: "256Mi"
           ports:
             - containerPort: 3000
           env:
@@ -55,13 +54,13 @@ spec:
             - name: JWT_SECRET
               value: "ESTE_ES_UN_SECRETO_PARA_DESARROLLO_NO_USAR_EN_PROD"
 
-            # --- Conexiones a Microservicios por Service Name (CRÍTICO para Saga) ---
+            # --- Conexiones a Microservicios ---
             - name: MS_USUARIOS_URL
-              value: "http://ms-usuarios-service:3001/usuarios" # Usará este nombre de Service para hacer requests
+              value: "http://ms-usuarios-service:3001/usuarios" 
             - name: MS_AGENDA_URL
-              value: "http://ms-agenda-service:3002/agenda" # Usará este nombre de Service
+              value: "http://ms-agenda-service:3002/agenda" 
             - name: MS_NOTIFICACIONES_URL
-              value: "http://ms-notificaciones-service:3003/notificaciones" # Usará este nombre de Service
+              value: "http://ms-notificaciones-service:3003/notificaciones" 
 
             # --- Conexión a la Base de Datos (PostgreSQL) ---
             - name: DB_HOST
@@ -75,6 +74,6 @@ spec:
             - name: DB_NAME
               value: db_tutorias
 
-            # --- Conexión a RabbitMQ (CRÍTICO para eventos asíncronos de Saga) ---
+            # --- Conexión a RabbitMQ ---
             - name: RABBITMQ_URL
               value: amqp://user:password@rabbitmq:5672

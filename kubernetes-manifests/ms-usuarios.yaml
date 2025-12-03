@@ -1,33 +1,29 @@
 # kubernetes-manifests/ms-usuarios.yaml
 
 # 1. Service (ClusterIP)
-# Define el nombre del servicio interno para otros microservicios (o para el Kong Ingress).
-
 apiVersion: v1
 kind: Service
 metadata:
-  name: ms-usuarios-service # Nombre de DNS interno: ms-usuarios-service
+  name: ms-usuarios-service
   labels:
     app: ms-usuarios
 spec:
   selector:
-    app: ms-usuarios # Selecciona los Pods con esta etiqueta
+    app: ms-usuarios
   ports:
     - protocol: TCP
-      port: 3001 # Puerto del Service
-      targetPort: 3001 # Puerto en el contenedor
+      port: 3001
+      targetPort: 3001
   type: ClusterIP 
 ---
 
 # 2. Deployment
-# Define la configuración de la réplica y el contenedor.
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ms-usuarios-deployment
 spec:
-  replicas: 1 # Queremos una sola instancia de este servicio, para el momento de la resilencia
+  replicas: 1 # <-- Replicas 
   selector:
     matchLabels:
       app: ms-usuarios
@@ -38,11 +34,17 @@ spec:
       labels:
         app: ms-usuarios 
     spec:
-      # --- CORRECCIÓN CLAVE: containers está anidado correctamente bajo spec ---
       containers:
         - name: ms-usuarios
           image: sebsgo/ms-usuarios:1.1 
-          imagePullPolicy: IfNotPresent # Añadido para usar la imagen local de minikube/Docker.
+          imagePullPolicy: IfNotPresent
+          resources: # <-- OPTIMIZACIÓN DE RECURSOS (RETO 01)
+            requests:
+              cpu: "250m"  # 0.25 vCPU
+              memory: "128Mi"
+            limits:
+              cpu: "500m"  # Máximo 0.5 vCPU
+              memory: "256Mi"
           ports:
             - containerPort: 3001
           env:
@@ -55,7 +57,6 @@ spec:
               value: "1h"
               
             # --- Variables de Conexión a la Base de Datos (PostgreSQL) ---
-            # Apunta al Service de la BD: db-usuarios
             - name: DB_HOST
               value: db-usuarios 
             - name: DB_PORT
