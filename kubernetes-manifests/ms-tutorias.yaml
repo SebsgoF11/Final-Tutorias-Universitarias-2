@@ -1,6 +1,6 @@
 # kubernetes-manifests/ms-tutorias.yaml
 
-# 1. Service (ClusterIP)
+# 1. Service (NodePort)
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,7 +14,7 @@ spec:
     - protocol: TCP
       port: 3000
       targetPort: 3000
-  type: ClusterIP
+  type: NodePort # <--- CORRECCIÓN CLAVE: Tipo de servicio estable para acceso externo
 ---
 
 # 2. Deployment
@@ -38,7 +38,7 @@ spec:
         - name: ms-tutorias
           image: sebsgo/ms-tutorias:1.2
           imagePullPolicy: IfNotPresent
-          resources: # <-- OPTIMIZACIÓN DE RECURSOS (RETO 01)
+          resources: # <-- Necesario para el HPA
             requests:
               cpu: "250m"  # 0.25 vCPU (25% de un núcleo)
               memory: "128Mi"
