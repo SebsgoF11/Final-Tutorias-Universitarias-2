@@ -1,0 +1,13 @@
+# values-ha.yaml
+# Usaremos la configuración mínima para el clúster HA
+
+replicaCount: 3
+
+# Eliminamos la sección 'image' para que Helm use su configuración por defecto
+# image:
+#   tag: 3.13.3-debian-12-r2 
+
+persistence:
+  enabled: true
+  storageClass: "standard" 
+  size: 8Gi

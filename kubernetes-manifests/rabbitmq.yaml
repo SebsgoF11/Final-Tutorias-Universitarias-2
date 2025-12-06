@@ -1,30 +1,45 @@
-# 1. Persistent Volume Claim (PVC) - RabbitMQ
+# rabbitmq-ha-statefulset.yaml
+# Implementa los Objetivos 1 y 2: HA (StatefulSet) y Persistencia (PVC Templates).
+
+# A. Servicio Headless (Descubrimiento y Clustering)
 apiVersion: v1
-kind: PersistentVolumeClaim
+kind: Service
 metadata:
-  name: rabbitmq-pv-claim
+  name: rabbitmq-ha-headless
+  namespace: mensajeria
   labels:
     app: rabbitmq
 spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
+  # clusterIP: None es clave para un servicio headless
+  clusterIP: None
+  ports:
+    - name: amqp
+      port: 5672
+    - name: epmd
+      port: 4369 # Puerto de distribución Erlang para clustering
+    - name: management
+      port: 15672
+    - name: metrics
+      port: 15692
+  selector:
+    app: rabbitmq
 ---
 
-# 2. Deployment - RabbitMQ
+# B. StatefulSet (HA con 3 Réplicas)
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: rabbitmq-deployment
+  name: rabbitmq-ha
+  namespace: mensajeria
   labels:
     app: rabbitmq
 spec:
+  # Objetivo 1: 3 Réplicas HA
+  replicas: 3
   selector:
     matchLabels:
       app: rabbitmq
-  replicas: 1
+  serviceName: "rabbitmq-ha-headless" 
   template:
     metadata:
       labels:
@@ -32,55 +47,45 @@ spec:
     spec:
       containers:
         - name: rabbitmq
-          image: rabbitmq:3-management-alpine
+          # Imagen estable que incluye Management y Prometheus Exporter
+          image: rabbitmq:3-management-alpine 
+          imagePullPolicy: IfNotPresent
           ports:
-            - name: amqp
-              containerPort: 5672
-            - name: management
-              containerPort: 15672
-            - name: metrics         # <--- NUEVO: Puerto para Prometheus
-              containerPort: 15692
-          volumeMounts:
-            - name: rabbitmq-storage
-              mountPath: /var/lib/rabbitmq
-            - name: rabbitmq-config # <--- NUEVO: Montamos la config de plugins
-              mountPath: /etc/rabbitmq/enabled_plugins
-              subPath: enabled_plugins
+            - containerPort: 5672
+            - containerPort: 15672
+            - containerPort: 15692
           env:
+            # 1. Cookie Secreta (Debe ser idéntica en todos los nodos)
+            - name: RABBITMQ_ERLANG_COOKIE
+              value: "CLUSTERING_SECRETO_RABBIT" 
+            # 2. Credenciales (usadas por ms-notificaciones y apps)
             - name: RABBITMQ_DEFAULT_USER
               value: user
             - name: RABBITMQ_DEFAULT_PASS
-              value: password
+              value: password123
+          volumeMounts:
+            # Monta la configuración de plugins y clustering
+            - name: config-volume
+              mountPath: /etc/rabbitmq/rabbitmq.conf
+              subPath: rabbitmq.conf
+            - name: config-volume
+              mountPath: /etc/rabbitmq/enabled_plugins
+              subPath: enabled_plugins
+            # Monta la persistencia (Objective 2)
+            - name: rabbitmq-storage
+              mountPath: /var/lib/rabbitmq/mnesia/
       volumes:
-        - name: rabbitmq-storage
-          persistentVolumeClaim:
-            claimName: rabbitmq-pv-claim
-        - name: rabbitmq-config     # <--- NUEVO: Definición del volumen config
+        - name: config-volume
           configMap:
-            name: rabbitmq-config
----
+            name: rabbitmq-config # Referencia al ConfigMap anterior
 
-# 3. Service - RabbitMQ
-apiVersion: v1
-kind: Service
-metadata:
-  name: rabbitmq
-  labels:
-    app: rabbitmq
-spec:
-  ports:
-    - name: amqp-port
-      port: 5672
-      targetPort: 5672
-      protocol: TCP
-    - name: management-port
-      port: 15672
-      targetPort: 15672
-      protocol: TCP
-    - name: metrics-port      # <--- NUEVO: Exponemos el puerto al servicio
-      port: 15692
-      targetPort: 15692
-      protocol: TCP
-  selector:
-    app: rabbitmq
-  type: ClusterIP
+  # C. VolumeClaimTemplates (Objetivo 2: Persistencia)
+  volumeClaimTemplates:
+  - metadata:
+      name: rabbitmq-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "standard" # AJUSTAR SI TU CLÚSTER USA OTRO NOMBRE
+      resources:
+        requests:
+          storage: 8Gi # 8GB de almacenamiento persistente por nodo (3 PVCs en total)
