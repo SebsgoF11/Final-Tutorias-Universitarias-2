@@ -20,7 +20,7 @@ export let options = {
 
 // 2. Definición del cuerpo de la solicitud POST
 // Hemos actualizado la BASE_URL para usar el NodePort directo de Minikube.
-const BASE_URL = 'http://127.0.0.1:59048/tutorias';
+const BASE_URL = 'http://127.0.0.1:58488';
 
 const payload = JSON.stringify({
     // Payload optimizado para un POST rápido
