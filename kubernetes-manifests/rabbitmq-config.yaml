@@ -1,21 +1,7 @@
-# rabbitmq-config.yaml
-# Configuración esencial para HA, Prometheus y Clustering en K8s.
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: rabbitmq-config
-  namespace: mensajeria
 data:
-  # Plugins requeridos: Management, Prometheus, y el plugin de Clustering K8s
   enabled_plugins: |
-    [rabbitmq_management,rabbitmq_prometheus,rabbitmq_peer_discovery_k8s].
-  
-  # Configuración de RabbitMQ para habilitar el clustering basado en K8s
-  rabbitmq.conf: |
-    loopback_users = none
-    # Backend de descubrimiento para K8s
-    cluster_formation.peer_discovery_backend = rabbit_peer_discovery_k8s
-    # Nombre del servicio headless que buscará a los otros pods
-    cluster_formation.k8s.host = rabbitmq-ha-headless.mensajeria.svc.cluster.local
-    cluster_formation.k8s.address_type = hostname
+    [rabbitmq_management, rabbitmq_prometheus].
