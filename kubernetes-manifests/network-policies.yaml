@@ -1,0 +1,40 @@
+# ----------------------------------------------------
+# 1. BLOQUEAR TODO EL TRÁFICO ENTRANTE A LA DB POR DEFECTO
+# ----------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-deny-all-ingress
+  namespace: mensajeria # Asumo que es el namespace que estás usando
+spec:
+  # Selecciona las bases de datos
+  podSelector:
+    matchLabels:
+      app: db-usuarios 
+  policyTypes:
+    - Ingress
+  # La sección Ingress vacía DENIEGA todo el tráfico entrante.
+  # PERO: No la dejamos vacía, la combinaremos con la regla de permiso.
+  
+---
+# 2. PERMITIR EXCEPCIÓN AL DUEÑO (ms-usuarios)
+# (Combinamos tu regla con el efecto de denegación por defecto)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-allow-ms-usuarios
+  namespace: mensajeria
+spec:
+  podSelector:
+    matchLabels:
+      app: db-usuarios # A quién protegemos
+  policyTypes:
+    - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ms-usuarios # Solo dejamos pasar al microservicio dueño
+    ports:
+    - protocol: TCP
+      port: 5432 # En el puerto PostgreSQL

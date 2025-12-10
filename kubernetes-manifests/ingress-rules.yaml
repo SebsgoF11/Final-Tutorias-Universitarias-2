@@ -3,6 +3,9 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: tutorias-ingress-rules
+  annotations:
+    konghq.com/strip-path: "false" # Elimina el prefijo de la ruta antes de enviar al servicio
+    konghq.com/plugins: freno-de-mano-5 # Aplica el plugin de rate limiting definido en kong-rate-limit.yaml
 spec:
   ingressClassName: kong # Indica que Kong debe gestionar estas reglas
   rules:
